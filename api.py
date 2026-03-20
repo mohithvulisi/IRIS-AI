@@ -1,13 +1,12 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from ddgs import DDGS
 from pypdf import PdfReader
-import io
+import io, base64
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,9 +20,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# State
 llm = ChatGroq(model="llama-3.3-70b-versatile")
 vision_llm = ChatGroq(model="meta-llama/llama-4-scout-17b-16e-instruct")
+
 chat_history = [SystemMessage(content="You are IRIS, a highly intelligent AI assistant. When you need to search the web, say SEARCH: followed by your query. Be concise and helpful.")]
 pdf_text = ""
 
@@ -67,7 +66,6 @@ async def upload(file: UploadFile = File(...)):
     for page in reader.pages:
         pdf_text += page.extract_text()
     return {"pages": len(reader.pages)}
-import base64
 
 @app.post("/vision")
 async def vision(file: UploadFile = File(...), question: str = "What is in this image?"):
@@ -75,7 +73,6 @@ async def vision(file: UploadFile = File(...), question: str = "What is in this 
     b64 = base64.b64encode(contents).decode("utf-8")
     ext = file.filename.split(".")[-1].lower()
     media_type = f"image/{ext if ext != 'jpg' else 'jpeg'}"
-    
     response = vision_llm.invoke([
         HumanMessage(content=[
             {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{b64}"}},
@@ -83,6 +80,7 @@ async def vision(file: UploadFile = File(...), question: str = "What is in this 
         ])
     ])
     return {"reply": response.content}
+
 @app.get("/")
 async def root():
     return FileResponse("index.html")
