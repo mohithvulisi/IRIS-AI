@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IRIS</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300;1,400&family=DM+Sans:wght@300;400;500&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0806;--glass:rgba(255,255,255,0.04);--glass2:rgba(255,255,255,0.08);
+  --border:rgba(255,255,255,0.08);--border2:rgba(192,98,47,0.4);
+  --ac:#c0622f;--ac2:#e8895a;--tx:#f0ebe2;--tx2:#a09080;--tx3:#6b5f52;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{font-family:'DM Sans',sans-serif;color:var(--tx)}
+
+/* VIDEO BG */
+#videobg{position:fixed;inset:0;z-index:0;overflow:hidden}
+#videobg video{width:100%;height:100%;object-fit:cover;opacity:0.18}
+#videobg::after{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 50%,rgba(192,98,47,0.08) 0%,rgba(10,8,6,0.92) 70%);
+}
+
+/* CANVAS AURORA (fallback + layer) */
+#aurora{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.6}
+
+/* NOISE */
+#noise{position:fixed;inset:0;z-index:2;pointer-events:none;opacity:0.035;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* LAYOUT */
+#app{position:relative;z-index:10;display:flex;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+#sidebar{
+  width:280px;flex-shrink:0;
+  background:rgba(10,8,6,0.7);
+  backdrop-filter:blur(40px) saturate(1.8);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:40px 28px;
+  animation:slideIn 0.8s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+@keyframes slideIn{from{transform:translateX(-100%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+.logo{margin-bottom:40px}
+.logo-title{
+  font-family:'Cormorant Garamond',serif;font-style:italic;
+  font-size:52px;font-weight:300;color:#e8c9a0;line-height:1;letter-spacing:-2px;
+}
+.logo-sub{font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--tx3);margin-top:6px}
+.logo-line{width:32px;height:1px;background:var(--ac);margin-top:14px;transition:width 0.4s ease}
+#sidebar:hover .logo-line{width:60px}
+
+.sidebar-section{margin-bottom:32px}
+.section-label{font-size:9px;font-weight:500;letter-spacing:0.25em;text-transform:uppercase;color:var(--tx3);margin-bottom:14px}
+
+/* Upload area */
+#upload-area{
+  border:1px dashed rgba(192,98,47,0.3);border-radius:14px;
+  padding:20px;text-align:center;cursor:pointer;
+  transition:all 0.3s ease;background:rgba(192,98,47,0.03);
+}
+#upload-area:hover{border-color:var(--ac);background:rgba(192,98,47,0.07);transform:translateY(-2px)}
+#upload-area.loaded{border-color:var(--ac);border-style:solid;background:rgba(192,98,47,0.08)}
+.upload-icon{font-size:24px;margin-bottom:8px;opacity:0.6}
+.upload-text{font-size:12px;color:var(--tx2);line-height:1.6}
+.upload-status{font-size:11px;color:var(--ac2);margin-top:8px;display:none}
+#file-input{display:none}
+
+.sidebar-info{margin-top:auto}
+.info-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.info-dot{width:5px;height:5px;border-radius:50%;background:var(--ac);flex-shrink:0}
+.info-text{font-size:11px;color:var(--tx3);line-height:1.5}
+
+/* MAIN */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* Header */
+#topbar{
+  padding:28px 40px 20px;
+  border-bottom:1px solid var(--border);
+  background:rgba(10,8,6,0.4);
+  backdrop-filter:blur(20px);
+  animation:fadeDown 0.6s ease both;
+}
+@keyframes fadeDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+.topbar-inner{display:flex;align-items:center;justify-content:space-between}
+.topbar-title{font-size:11px;font-weight:500;letter-spacing:0.2em;text-transform:uppercase;color:var(--tx3)}
+.status{display:flex;align-items:center;gap:8px}
+.status-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(74,222,128,0.4)}50%{opacity:0.7;box-shadow:0 0 0 6px rgba(74,222,128,0)}}
+.status-text{font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--tx3)}
+
+/* Messages */
+#messages{flex:1;overflow-y:auto;padding:32px 40px;display:flex;flex-direction:column;gap:20px;scroll-behavior:smooth}
+#messages::-webkit-scrollbar{width:2px}
+#messages::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.msg-wrap{animation:msgIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both}
+@keyframes msgIn{from{opacity:0;transform:translateY(20px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.msg-user{display:flex;flex-direction:column;align-items:flex-end}
+.msg-iris{display:flex;flex-direction:column;align-items:flex-start}
+
+.msg-label{font-size:9px;font-weight:500;letter-spacing:0.25em;text-transform:uppercase;margin-bottom:7px;padding:0 4px}
+.msg-label-u{color:var(--tx3)}
+.msg-label-i{color:var(--ac)}
+
+.bubble{
+  max-width:75%;font-size:14px;line-height:1.8;padding:16px 22px;
+  position:relative;overflow:hidden;
+}
+.bubble::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none}
+
+.bubble-user{
+  background:var(--glass2);
+  backdrop-filter:blur(20px);
+  border:1px solid var(--border);
+  border-radius:20px 20px 4px 20px;
+  color:#d4c4b0;
+}
+.bubble-user::before{background:linear-gradient(135deg,rgba(255,255,255,0.06),transparent)}
+
+.bubble-iris{
+  background:rgba(192,98,47,0.06);
+  backdrop-filter:blur(20px);
+  border:1px solid rgba(192,98,47,0.15);
+  border-left:2px solid var(--ac);
+  border-radius:20px 20px 20px 4px;
+  color:#e8ddd0;
+}
+.bubble-iris::before{background:linear-gradient(135deg,rgba(192,98,47,0.08),transparent)}
+
+/* Typing indicator */
+.typing{display:flex;gap:5px;align-items:center;padding:16px 22px}
+.typing span{width:5px;height:5px;border-radius:50%;background:var(--ac);animation:bounce 1.2s infinite}
+.typing span:nth-child(2){animation-delay:0.2s}
+.typing span:nth-child(3){animation-delay:0.4s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-8px)}}
+
+/* Welcome */
+#welcome{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  flex:1;text-align:center;padding:40px;animation:fadeIn 1s ease both 0.3s;
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.welcome-title{
+  font-family:'Cormorant Garamond',serif;font-style:italic;
+  font-size:48px;font-weight:300;color:#e8c9a0;margin-bottom:12px;
+}
+.welcome-sub{font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:var(--tx3);margin-bottom:48px}
+.suggestions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;max-width:500px}
+.sug{
+  background:var(--glass);backdrop-filter:blur(20px);
+  border:1px solid var(--border);border-radius:100px;
+  padding:10px 18px;font-size:12px;color:var(--tx2);cursor:pointer;
+  transition:all 0.3s ease;
+}
+.sug:hover{background:rgba(192,98,47,0.1);border-color:var(--ac);color:var(--tx);transform:translateY(-2px)}
+
+/* Input */
+#inputbar{
+  padding:20px 40px 28px;
+  background:rgba(10,8,6,0.6);
+  backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);
+}
+#input-wrap{
+  display:flex;align-items:center;gap:14px;
+  background:var(--glass);
+  backdrop-filter:blur(30px);
+  border:1px solid var(--border);
+  border-radius:18px;padding:6px 6px 6px 22px;
+  transition:all 0.3s ease;
+}
+#input-wrap:focus-within{border-color:rgba(192,98,47,0.5);box-shadow:0 0 0 4px rgba(192,98,47,0.06);background:var(--glass2)}
+#msg-input{
+  flex:1;background:transparent;border:none;outline:none;
+  font-family:'DM Sans',sans-serif;font-size:14px;color:var(--tx);
+  resize:none;height:24px;line-height:24px;max-height:120px;overflow-y:auto;
+}
+#msg-input::placeholder{color:var(--tx3)}
+#send-btn{
+  width:44px;height:44px;border-radius:12px;background:var(--ac);
+  border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);flex-shrink:0;
+}
+#send-btn:hover{background:var(--ac2);transform:scale(1.1)}
+#send-btn:active{transform:scale(0.92)}
+#send-btn svg{width:18px;height:18px;fill:white}
+</style>
+</head>
+<body>
+
+<!-- Video BG -->
+<div id="videobg">
+  <video autoplay muted loop playsinline>
+    <source src="https://cdn.coverr.co/videos/coverr-abstract-dark-waves-1580/mp4" type="video/mp4">
+  </video>
+</div>
+
+<!-- Aurora Canvas -->
+<canvas id="aurora"></canvas>
+<div id="noise"></div>
+
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="logo">
+      <div class="logo-title">IRIS</div>
+      <div class="logo-sub">Intelligent Research & Information System</div>
+      <div class="logo-line"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">Document</div>
+      <div id="upload-area" onclick="document.getElementById('file-input').click()">
+        <div class="upload-icon">+</div>
+        <div class="upload-text">Click to upload a PDF</div>
+        <div class="upload-status" id="upload-status"></div>
+      </div>
+      <input type="file" id="file-input" accept=".pdf">
+    </div>
+
+    <div class="sidebar-info">
+      <div class="info-item"><div class="info-dot"></div><div class="info-text">Real-time web search</div></div>
+      <div class="info-item"><div class="info-dot"></div><div class="info-text">PDF document reading</div></div>
+      <div class="info-item"><div class="info-dot"></div><div class="info-text">Persistent memory</div></div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="topbar">
+      <div class="topbar-inner">
+        <div class="topbar-title">Conversation</div>
+        <div class="status">
+          <div class="status-dot"></div>
+          <div class="status-text">Online</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="messages">
+      <div id="welcome">
+        <div class="welcome-title">How can I help?</div>
+        <div class="welcome-sub">Ask me anything</div>
+        <div class="suggestions">
+          <div class="sug" onclick="sendSug(this)">Search latest AI news</div>
+          <div class="sug" onclick="sendSug(this)">What's trending in Hyderabad?</div>
+          <div class="sug" onclick="sendSug(this)">Summarize my PDF</div>
+          <div class="sug" onclick="sendSug(this)">Explain machine learning</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="inputbar">
+      <div id="input-wrap">
+        <textarea id="msg-input" placeholder="Ask IRIS anything..." rows="1"></textarea>
+        <button id="send-btn" onclick="sendMessage()">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Aurora canvas
+const cv = document.getElementById('aurora');
+const cx = cv.getContext('2d');
+function resize(){cv.width=innerWidth;cv.height=innerHeight}
+resize();addEventListener('resize',resize);
+const orbs = Array.from({length:5},(_,i)=>({
+  x:Math.random(),y:Math.random(),r:0.25+Math.random()*0.2,
+  hue:[22,35,15,28,42][i],ph:Math.random()*6.28,sp:0.0003+Math.random()*0.0003
+}));
+let t=0;
+(function draw(){
+  t++;cx.clearRect(0,0,cv.width,cv.height);
+  orbs.forEach(o=>{
+    const ox=(o.x+Math.sin(t*o.sp+o.ph)*0.12)*cv.width;
+    const oy=(o.y+Math.cos(t*o.sp*0.7+o.ph)*0.09)*cv.height;
+    const rad=o.r*Math.min(cv.width,cv.height)*(0.88+0.12*Math.sin(t*0.001+o.ph));
+    const g=cx.createRadialGradient(ox,oy,0,ox,oy,rad);
+    g.addColorStop(0,`hsla(${o.hue},65%,45%,0.12)`);
+    g.addColorStop(0.5,`hsla(${o.hue+18},60%,38%,0.05)`);
+    g.addColorStop(1,`hsla(${o.hue+36},55%,32%,0)`);
+    cx.fillStyle=g;cx.fillRect(0,0,cv.width,cv.height);
+  });
+  requestAnimationFrame(draw);
+})();
+
+// PDF upload
+document.getElementById('file-input').addEventListener('change', async(e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const fd = new FormData();
+  fd.append('file', file);
+  const area = document.getElementById('upload-area');
+  const status = document.getElementById('upload-status');
+  area.classList.add('loaded');
+  status.style.display='block';
+  status.textContent='Uploading...';
+  const res = await fetch('/upload',{method:'POST',body:fd});
+  const data = await res.json();
+  status.textContent=`Loaded — ${data.pages} pages`;
+  document.querySelector('#upload-area .upload-text').textContent=file.name;
+});
+
+// Chat
+const msgs = document.getElementById('messages');
+let welcome = document.getElementById('welcome');
+
+function addMsg(role, text){
+  if(welcome){welcome.remove();welcome=null;}
+  const wrap = document.createElement('div');
+  wrap.className=`msg-wrap msg-${role==='user'?'user':'iris'}`;
+  wrap.innerHTML=`
+    <div class="msg-label ${role==='user'?'msg-label-u':'msg-label-i'}">${role==='user'?'You':'IRIS'}</div>
+    <div class="bubble bubble-${role==='user'?'user':'iris'}">${text}</div>
+  `;
+  msgs.appendChild(wrap);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function showTyping(){
+  if(welcome){welcome.remove();welcome=null;}
+  const t=document.createElement('div');
+  t.id='typing';t.className='msg-wrap msg-iris';
+  t.innerHTML=`<div class="msg-label msg-label-i">IRIS</div><div class="bubble bubble-iris"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  msgs.appendChild(t);msgs.scrollTop=msgs.scrollHeight;
+  return t;
+}
+
+async function sendMessage(){
+  const input=document.getElementById('msg-input');
+  const text=input.value.trim();
+  if(!text)return;
+  input.value='';input.style.height='24px';
+  addMsg('user',text);
+  const typing=showTyping();
+  try{
+    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    const data=await res.json();
+    typing.remove();
+    addMsg('iris',data.reply);
+  }catch(e){typing.remove();addMsg('iris','Something went wrong. Please try again.');}
+}
+
+function sendSug(el){
+  document.getElementById('msg-input').value=el.textContent;
+  sendMessage();
+}
+
+// Enter to send
+document.getElementById('msg-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();}
+});
+
+// Auto resize textarea
+document.getElementById('msg-input').addEventListener('input',function(){
+  this.style.height='24px';
+  this.style.height=Math.min(this.scrollHeight,120)+'px';
+});
+</script>
+</body>
+</html>
